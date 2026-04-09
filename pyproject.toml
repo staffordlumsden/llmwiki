@@ -37,7 +37,7 @@ dev = [
 ]
 
 [project.scripts]
-llmwiki = "llmwiki.cli:app"
+llmwiki = "llmwiki.__main__:app"
 
 [build-system]
 requires = ["hatchling"]

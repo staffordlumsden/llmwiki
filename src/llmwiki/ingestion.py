@@ -1,9 +1,9 @@
 """Document ingestion pipeline for llmwiki."""
 
 import hashlib
-import os
+import struct
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import ollama
 from rich.console import Console
 from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn
@@ -147,13 +147,10 @@ def generate_embeddings(texts: List[str], model: str, config: Config) -> List[Li
     """
     embeddings = []
     
-    # Process in batches
-    batch_size = config.models["embeddings"]["batch_size"]
-    
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i + batch_size]
+    # Process each text individually (Ollama embeddings API accepts single prompts)
+    for text in texts:
         try:
-            response = ollama.embeddings(model=model, prompt=batch[0])
+            response = ollama.embeddings(model=model, prompt=text)
             embeddings.append(response["embedding"])
         except Exception as e:
             console.print(f"[red]Error generating embedding: {e}[/red]")
@@ -270,7 +267,7 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
                 
                 progress.update(extract_task, advance=1)
         
-        # Insert chunks
+        # Insert chunks (FTS is handled by triggers in schema.sql)
         if all_chunks:
             db.executemany(
                 """INSERT INTO chunks 
@@ -278,24 +275,22 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 all_chunks
             )
-
-            # Update FTS index with the inserted chunks
-            chunk_rows = db.fetchall(
-                "SELECT rowid, text FROM chunks WHERE source_version_id = ? ORDER BY chunk_index",
-                (source_version_id,)
-            )
-            for row in chunk_rows:
-                db.execute(
-                    "INSERT INTO chunk_fts(rowid, text) VALUES (?, ?)",
-                    (row["rowid"], row["text"])
-                )
-            console.print(f"[dim]Updated FTS index for {len(chunk_rows)} chunks[/dim]")
+            # Note: FTS index is automatically updated by triggers defined in schema.sql
+            console.print(f"[dim]Inserted {len(all_chunks)} chunks (FTS updated via triggers)[/dim]")
 
         # Generate and store embeddings with progress
         embed_model = config.models["embeddings"]["name"]
         console.print(f"[dim]Generating embeddings with {embed_model}...[/dim]")
         
+        embeddings_created = 0
         if all_texts:
+            # Get chunk IDs for the inserted chunks (in order)
+            chunk_rows = db.fetchall(
+                "SELECT id FROM chunks WHERE source_version_id = ? ORDER BY chunk_index",
+                (source_version_id,)
+            )
+            chunk_ids = [row["id"] for row in chunk_rows]
+            
             # Progress for embedding generation
             embed_progress = Progress(
                 TextColumn("[progress.description]{task.description}"),
@@ -306,24 +301,18 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
             embed_data = []
             with embed_progress:
                 embed_task = embed_progress.add_task("Embedding chunks", total=len(all_texts))
-                batch_size = config.models["embeddings"].get("batch_size", 1)
-                for i in range(0, len(all_texts), batch_size):
-                    batch = all_texts[i:i + batch_size]
+                for i, text in enumerate(all_texts):
                     try:
-                        # Ollama embeddings API only accepts a single prompt at a time in this stub
-                        response = ollama.embeddings(model=embed_model, prompt=batch[0])
+                        # Ollama embeddings API accepts a single prompt at a time
+                        response = ollama.embeddings(model=embed_model, prompt=text)
                         embedding = response.get("embedding")
                     except Exception as e:
                         console.print(f"[red]Error generating embedding: {e}[/red]")
                         embedding = [0.0] * 768
-                    # Store embedding for corresponding chunk
-                    chunk = chunk_metadata[i]
-                    # Get chunk_id (last inserted chunk for this source_version)
-                    chunk_id = db.fetchone(
-                        "SELECT id FROM chunks WHERE source_version_id = ? ORDER BY chunk_index DESC LIMIT 1",
-                        (source_version_id,)
-                    )["id"]
-                    import struct
+                    
+                    # Get the correct chunk_id for this text
+                    chunk_id = chunk_ids[i] if i < len(chunk_ids) else chunk_ids[-1]
+                    
                     vector_bytes = struct.pack(f'{len(embedding)}f', *embedding)
                     embed_data.append((
                         chunk_id,
@@ -340,6 +329,7 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
                        VALUES (?, ?, ?, ?, ?)""",
                     embed_data
                 )
+                embeddings_created = len(embed_data)
         
         # Update status
         db.execute(
@@ -360,7 +350,7 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
             "source_id": source_id,
             "source_version_id": source_version_id,
             "chunks_created": len(all_chunks),
-            "embeddings_created": len(embeddings) if all_texts else 0,
+            "embeddings_created": embeddings_created,
             "message": f"Successfully ingested {path.name}"
         }
         

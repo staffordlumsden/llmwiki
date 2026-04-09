@@ -1,8 +1,9 @@
 """Retrieval pipeline with hybrid FTS + semantic search for llmwiki."""
 
+import re
 import numpy as np
 import ollama
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from rich.console import Console
 
 from llmwiki.db.connection import DatabaseConnection
@@ -54,6 +55,49 @@ def embed_query(query: str, model: str, config: Config) -> Optional[List[float]]
         return None
 
 
+def sanitize_fts_query(query: str) -> Optional[str]:
+    """Sanitize a query for FTS5 MATCH syntax.
+    
+    Removes special characters and handles common user input patterns
+    that would cause FTS5 syntax errors.
+    
+    Args:
+        query: Raw user query
+        
+    Returns:
+        Sanitized query safe for FTS5 MATCH, or None if query is empty
+    """
+    # Remove or escape FTS5 special characters
+    # FTS5 operators: AND, OR, NOT, NEAR, and special chars: " * ^ ( )
+    
+    # Remove quotes that aren't balanced
+    query = query.replace('"', ' ')
+    
+    # Remove parentheses
+    query = query.replace('(', ' ').replace(')', ' ')
+    
+    # Remove wildcards at start (FTS5 doesn't support leading wildcards)
+    query = re.sub(r'^\*+', '', query)
+    
+    # Remove standalone operators
+    words = query.split()
+    filtered_words = []
+    for word in words:
+        upper_word = word.upper()
+        if upper_word in ('AND', 'OR', 'NOT', 'NEAR'):
+            continue
+        # Remove trailing/leading special chars
+        word = word.strip('*^')
+        if word:
+            filtered_words.append(word)
+    
+    # Join with spaces (implicit AND in FTS5)
+    result = ' '.join(filtered_words)
+    
+    # If empty after sanitization, return None to indicate no valid query
+    return result.strip() if result.strip() else None
+
+
 def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List[Dict]:
     """Retrieve chunks using full-text search.
     
@@ -66,6 +110,11 @@ def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List
         List of chunk dicts with FTS results
     """
     try:
+        # Sanitize query for FTS5
+        safe_query = sanitize_fts_query(query)
+        if not safe_query:
+            return []
+        
         # Use FTS5 match
         rows = db.fetchall(
             """SELECT c.id, c.text, c.page_start, c.page_end, c.chunk_index, 
@@ -76,7 +125,7 @@ def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List
                WHERE cf MATCH ?
                ORDER BY rank
                LIMIT ?""",
-            (query, top_k)
+            (safe_query, top_k)
         )
         
         return [
@@ -235,16 +284,18 @@ def retrieve_relevant_chunks(
     # Normalize scores and combine
     all_chunks = {}
     
-    # Add FTS results (score = 1.0 for all, could improve with BM25 scores)
+    # Add FTS results with decay that stays positive
+    # Use exponential decay: score = 1.0 * (0.95 ^ rank) to ensure positive scores
     for i, chunk in enumerate(fts_results):
         chunk_id = chunk["id"]
+        fts_score = max(0.1, 1.0 * (0.95 ** i))  # Exponential decay, minimum 0.1
         if chunk_id not in all_chunks:
             all_chunks[chunk_id] = chunk.copy()
-            all_chunks[chunk_id]["fts_score"] = 1.0 - (i * 0.05)  # Decay by rank
+            all_chunks[chunk_id]["fts_score"] = fts_score
         else:
             all_chunks[chunk_id]["fts_score"] = max(
                 all_chunks[chunk_id].get("fts_score", 0),
-                1.0 - (i * 0.05)
+                fts_score
             )
     
     # Add semantic results

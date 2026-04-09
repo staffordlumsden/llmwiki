@@ -17,8 +17,8 @@ models:
   fallback_generation:
     alias: cloud_writer
     provider: ollama
-    endpoint: https://ollama.com
-    name: gpt-oss:120b-cloud
+    endpoint: http://localhost:11434
+    name: llama3:latest
     temperature: 0.1
     num_ctx: 16384
     timeout_seconds: 120
