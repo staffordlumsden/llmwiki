@@ -333,16 +333,27 @@ def handle_ingest(db: DatabaseConnection, config: Config):
 
 
 # --- Chat loop ---
-def render_response(response_text: str, citations: Optional[List[Dict]] = None):
-    """Render response with citations."""
+def render_response(response_text: str, citations: Optional[List[Dict]] = None, token_info: Optional[Dict] = None):
+    """Render response with citations and token stats."""
     md = Markdown(response_text)
     console.print(md)
+    # Show token usage if available
+    if token_info:
+        console.print(f"[dim]Tokens: {token_info.get('input_tokens', 0)} input, {token_info.get('output_tokens', 0)} output[/dim]")
     if citations:
         table = Table(title="Citations")
-        table.add_column("Source", style="cyan")
-        table.add_column("Text", style="white")
+        table.add_column("#", style="cyan", width=4)
+        table.add_column("Source ID", style="green", width=10)
+        table.add_column("Pages", style="blue", width=10)
+        table.add_column("Excerpt", style="white")
         for cit in citations[:5]:
-            table.add_row(str(cit.get("id", "")), cit.get("text", "")[:60] + "...")
+            excerpt = cit.get("text", "")[:80] + "..." if len(cit.get("text", "")) > 80 else cit.get("text", "")
+            table.add_row(
+                str(cit.get("id", "")),
+                str(cit.get("source_id", "?")),
+                f"{cit.get('page_start', '?')}-{cit.get('page_end', '?')}",
+                excerpt,
+            )
         console.print(table)
 
 
@@ -416,23 +427,49 @@ def chat_loop(db: DatabaseConnection, config: Config, chat_model: str, embed_mod
         else:
             # Query
             turns += 1
-            input_tokens += len(user_msg.split())
+            start_query = time.time()
 
-            # Retrieve context
-            chunks = retrieve_relevant_chunks(db, embed_model, user_msg, top_k=5)
-            context = "\n\n".join([c["text"] for c in chunks])
+            # Retrieve relevant chunks (hybrid)
+            console.print(f"[dim]Retrieving relevant chunks...[/dim]")
+            chunks = retrieve_relevant_chunks(db, embed_model, user_msg, config, top_k=7)
+            retrieval_time = time.time() - start_query
+            console.print(f"[dim]Retrieved {len(chunks)} chunks in {retrieval_time:.2f}s[/dim]")
 
-            # Generate response (stub - just echo for now)
-            console.print(Panel("[dim]Query processing stub - full generation not yet connected.[/dim]"))
-            console.print(f"[yellow]Query: {user_msg}[/yellow]")
-            console.print(f"[dim]Context chunks: {len(chunks)}[/dim]")
+            # Add neighbor chunks if configured
+            if chunks and config.retrieval.include_neighbor_chunks > 0:
+                neighbors = get_chunk_neighbors(db, chunks[0]["id"], config.retrieval.include_neighbor_chunks)
+                if neighbors:
+                    chunks = neighbors[:2] + chunks + neighbors[2:]
 
-            # In real impl: call Ollama with context and user_msg
-            # For now, simulate response
-            response = f"Response to: {user_msg}\n\n(This is a stub response. Full Ollama generation will be connected in the next iteration.)"
-            render_response(response, [{"id": i, "text": c["text"]} for i, c in enumerate(chunks)])
+            # Generate response using Ollama
+            console.print(f"[dim]Generating response with {chat_model}...[/dim]")
+            if chunks:
+                result = generate_response(
+                    query=user_msg,
+                    chunks=chunks,
+                    model=chat_model,
+                    config=config,
+                    params=params
+                )
+            else:
+                console.print("[yellow]No relevant context found, using chat-only mode[/yellow]")
+                result = generate_response_simple(
+                    query=user_msg,
+                    model=chat_model,
+                    config=config,
+                    params=params
+                )
 
-            output_tokens += len(response.split())
+            if result.get("success"):
+                input_tokens += result.get("input_tokens", 0)
+                output_tokens += result.get("output_tokens", 0)
+                token_info = {
+                    "input_tokens": result.get("input_tokens", 0),
+                    "output_tokens": result.get("output_tokens", 0)
+                }
+                render_response(result["text"], result.get("citations", []), token_info)
+            else:
+                console.print(Panel(f"[red]Generation failed: {result.get('error', 'Unknown error')}[/red]"))
 
 
 def main_interactive():

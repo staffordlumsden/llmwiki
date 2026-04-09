@@ -279,6 +279,18 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
                 all_chunks
             )
         
+ # Update FTS index with the inserted chunks
+ chunk_rows = db.fetchall(
+ "SELECT rowid, text FROM chunks WHERE source_version_id = ? ORDER BY chunk_index",
+ (source_version_id,)
+ )
+ for row in chunk_rows:
+ db.execute(
+ "INSERT INTO chunk_fts(rowid, text) VALUES (?, ?)",
+ (row["rowid"], row["text"])
+ )
+ console.print(f"[dim]Updated FTS index for {len(chunk_rows)} chunks[/dim]")
+
         # Generate and store embeddings
         embed_model = config.models["embeddings"]["name"]
         console.print(f"[dim]Generating embeddings with {embed_model}...[/dim]")

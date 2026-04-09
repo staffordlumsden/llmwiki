@@ -70,8 +70,8 @@ def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List
         rows = db.fetchall(
             """SELECT c.id, c.text, c.page_start, c.page_end, c.chunk_index, 
                       sv.source_id
-               FROM chunks c
-               JOIN chunk_fts cf ON c.id = cf.rowid
+               FROM chunk_fts cf
+               JOIN chunks c ON c.rowid = cf.rowid
                JOIN source_versions sv ON c.source_version_id = sv.id
                WHERE cf MATCH ?
                ORDER BY rank
