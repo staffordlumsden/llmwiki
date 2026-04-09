@@ -4,47 +4,23 @@ from pathlib import Path
 import typer
 import ollama
 import os
-import sys
-import json
 import time
-import shutil
-import re
-import base64
-import io
-import urllib.request
-import urllib.error
-import subprocess
-import tempfile
 import pyfiglet
-import numpy as np
-from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.align import Align
 from rich.text import Text
 from rich.rule import Rule
-from rich.spinner import Spinner
-from rich.live import Live
-from rich.console import Group
-from rich.prompt import Prompt
 from rich.markdown import Markdown
-from rich.progress import track
 from pick import pick
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.filters import Condition
-from prompt_toolkit.application import get_app
 
 from llmwiki.db.connection import DatabaseConnection
 from llmwiki.config import Config
 from llmwiki.constants import (
     DEFAULT_config_file,
-    DEFAULT_categories_file,
-    DEFAULT_sources_dir,
-    DEFAULT_wiki_dir,
-    DEFAULT_state_dir,
-    DEFAULT_cache_dir,
     DEFAULT_db_path,
 )
 # Additional imports for full pipeline
@@ -157,7 +133,18 @@ def select_chat_model() -> Optional[str]:
     """Select a chat model from available Ollama models."""
     try:
         models_info = ollama.list()
-        available = [m["model"] for m in models_info.get("models", []) if "embed" not in m["model"].lower()]
+        # Handle both old dict-style and new object-style response from ollama library
+        if hasattr(models_info, 'models'):
+            # New ollama library returns ListResponse with .models attribute
+            models_list = models_info.models
+            available = [
+                (m.model if hasattr(m, 'model') else m.get('model', ''))
+                for m in models_list
+                if "embed" not in (m.model if hasattr(m, 'model') else m.get('model', '')).lower()
+            ]
+        else:
+            # Old dict-style response
+            available = [m["model"] for m in models_info.get("models", []) if "embed" not in m["model"].lower()]
         if not available:
             console.print(Panel("[red]No chat models found. Run 'ollama pull <model>'.[/red]"))
             return None
@@ -173,7 +160,18 @@ def select_embedding_model() -> Optional[str]:
     """Select an embedding model."""
     try:
         models_info = ollama.list()
-        available = [m["model"] for m in models_info.get("models", []) if "embed" in m["model"].lower()]
+        # Handle both old dict-style and new object-style response from ollama library
+        if hasattr(models_info, 'models'):
+            # New ollama library returns ListResponse with .models attribute
+            models_list = models_info.models
+            available = [
+                (m.model if hasattr(m, 'model') else m.get('model', ''))
+                for m in models_list
+                if "embed" in (m.model if hasattr(m, 'model') else m.get('model', '')).lower()
+            ]
+        else:
+            # Old dict-style response
+            available = [m["model"] for m in models_info.get("models", []) if "embed" in m["model"].lower()]
         if not available:
             console.print(Panel("[red]No embedding models found. Run 'ollama pull nomic-embed-text'.[/red]"))
             return None
@@ -314,14 +312,22 @@ def handle_ingest(db: DatabaseConnection, config: Config):
         path = pick_item(is_folder=False)
         if path and os.path.exists(path):
             console.print(Panel(f"[green]Ingesting: {path}[/green]"))
-            console.print("[dim]Ingestion stub - full pipeline not yet connected.[/dim]")
+            result = ingest_file(path, db, config)
+            if result.get("status") == "success":
+                console.print(Panel(f"[green]{result.get('message')}[/green]"))
+            elif result.get("status") == "skipped":
+                console.print(Panel(f"[yellow]{result.get('message')}[/yellow]"))
+            else:
+                console.print(Panel(f"[red]Error: {result.get('message')}[/red]"))
         else:
             console.print(Panel("[yellow]No file selected.[/yellow]"))
     elif choice == "[2] Folder":
         path = pick_item(is_folder=True)
         if path and os.path.isdir(path):
             console.print(Panel(f"[green]Ingesting folder: {path}[/green]"))
-            console.print("[dim]Folder ingestion stub.[/dim]")
+            result = ingest_folder(path, db, config)
+            if result.get("status") == "error":
+                console.print(Panel(f"[red]Error: {result.get('message')}[/red]"))
         else:
             console.print(Panel("[yellow]No folder selected.[/yellow]"))
 
@@ -430,7 +436,7 @@ def chat_loop(db: DatabaseConnection, config: Config, chat_model: str, embed_mod
             start_query = time.time()
 
             # Retrieve relevant chunks (hybrid)
-            console.print(f"[dim]Retrieving relevant chunks...[/dim]")
+            console.print("[dim]Retrieving relevant chunks...[/dim]")
             chunks = retrieve_relevant_chunks(db, embed_model, user_msg, config, top_k=7)
             retrieval_time = time.time() - start_query
             console.print(f"[dim]Retrieved {len(chunks)} chunks in {retrieval_time:.2f}s[/dim]")

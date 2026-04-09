@@ -88,7 +88,6 @@ class DatabaseConnection:
 
 def init_database(db_path: Path) -> DatabaseConnection:
     """Initialize database with schema."""
-    from llmwiki import __version__
     
     # Ensure parent directory exists
     db_path.parent.mkdir(parents=True, exist_ok=True)

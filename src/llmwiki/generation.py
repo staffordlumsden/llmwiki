@@ -7,7 +7,6 @@ from rich.live import Live
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from llmwiki.db.connection import DatabaseConnection
 from llmwiki.config import Config
 
 console = Console()
@@ -110,8 +109,6 @@ def generate_response(
         "num_predict": params.get("num_predict", gen_config.get("num_ctx", 1024)),
     }
     
-    timeout = gen_config.get("timeout_seconds", 120)
-    
     # Prepare for streaming
     full_response = ""
     input_tokens = 0
@@ -132,20 +129,22 @@ def generate_response(
         # Collect and display response
         console.print(Panel("[dim]Generating response...[/dim]", border_style="blue"))
         
+        last_stream_chunk = None
         with Live("", console=console, refresh_per_second=10, vertical_overflow="visible") as live:
-            for chunk in stream:
-                if "message" in chunk and "content" in chunk["message"]:
-                    content = chunk["message"]["content"]
+            for stream_chunk in stream:
+                if "message" in stream_chunk and "content" in stream_chunk["message"]:
+                    content = stream_chunk["message"]["content"]
                     full_response += content
                     
                     # Render markdown
                     md = Markdown(full_response)
                     live.update(md)
+                last_stream_chunk = stream_chunk
         
         # Parse token usage from the last chunk if available
-        if chunk and "eval_count" in chunk:
-            input_tokens = chunk.get("prompt_eval_count", 0)
-            output_tokens = chunk.get("eval_count", 0)
+        if last_stream_chunk and "eval_count" in last_stream_chunk:
+            input_tokens = last_stream_chunk.get("prompt_eval_count", 0)
+            output_tokens = last_stream_chunk.get("eval_count", 0)
         else:
             # Estimate if not provided
             input_tokens = len(user_prompt) // 4
@@ -153,13 +152,13 @@ def generate_response(
         
         # Extract citations from chunks
         citations = []
-        for i, chunk in enumerate(chunks[:5]):
+        for i, ctx_chunk in enumerate(chunks[:5]):
             citations.append({
                 "id": i + 1,
-                "text": chunk.get("text", "")[:200] + "..." if len(chunk.get("text", "")) > 200 else chunk.get("text", ""),
-                "page_start": chunk.get("page_start", "?"),
-                "page_end": chunk.get("page_end", "?"),
-                "source_id": chunk.get("source_id", "?")
+                "text": ctx_chunk.get("text", "")[:200] + "..." if len(ctx_chunk.get("text", "")) > 200 else ctx_chunk.get("text", ""),
+                "page_start": ctx_chunk.get("page_start", "?"),
+                "page_end": ctx_chunk.get("page_end", "?"),
+                "source_id": ctx_chunk.get("source_id", "?")
             })
         
         return {

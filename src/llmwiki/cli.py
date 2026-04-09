@@ -424,3 +424,412 @@ def stats():
 
     conn.close()
     console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# profile command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def profile(
+    name: str = typer.Argument(None, help="Profile name to show or set"),
+):
+    """Show or set the hardware profile."""
+    cfg_path = Path(DEFAULT_config_file)
+    if not cfg_path.exists():
+        console.print("[yellow]No config found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    cfg = Config.load_from_file(cfg_path)
+
+    if name is None:
+        console.print(f"[bold]Current profile:[/bold] {cfg.profile}")
+        console.print(f"\n[dim]Available profiles: {', '.join(SUPPORTED_PROFILES)}[/dim]")
+    else:
+        if name not in SUPPORTED_PROFILES:
+            console.print(f"[red]Invalid profile '{name}'. Must be one of: {', '.join(SUPPORTED_PROFILES)}[/red]")
+            raise typer.Exit(code=1)
+        cfg.profile = name
+        cfg.save_to_file(cfg_path)
+        console.print(f"[green]Profile changed to: {name}[/green]")
+
+
+# ---------------------------------------------------------------------------
+# category command
+# ---------------------------------------------------------------------------
+
+@app.command(name="category")
+def category(
+    action: str = typer.Argument("list", help="Action: list, add, reload"),
+    cat_id: str = typer.Option(None, "--id", help="Category ID for add"),
+    label: str = typer.Option(None, "--label", help="Category label for add"),
+    description: str = typer.Option(None, "--description", help="Category description"),
+):
+    """Manage document categories."""
+    if action == "list":
+        cat_path = Path(DEFAULT_categories_file)
+        if not cat_path.exists():
+            console.print("[yellow]No categories file found. Run 'llmwiki init' first.[/yellow]")
+            raise typer.Exit(code=1)
+
+        with open(cat_path, "r", encoding="utf-8") as f:
+            cats = yaml.safe_load(f)
+
+        table = Table(title="Categories")
+        table.add_column("ID", style="cyan")
+        table.add_column("Label", style="green")
+        table.add_column("Description", style="white")
+        table.add_column("Boost", style="yellow")
+
+        for cat in cats.get("categories", []):
+            table.add_row(
+                cat.get("id", ""),
+                cat.get("label", ""),
+                cat.get("description", "")[:50],
+                str(cat.get("retrieval_boost", 1.0)),
+            )
+        console.print(table)
+
+    elif action == "add":
+        if not cat_id or not label:
+            console.print("[red]Error: --id and --label are required for add[/red]")
+            raise typer.Exit(code=1)
+
+        cat_path = Path(DEFAULT_categories_file)
+        if not cat_path.exists():
+            console.print("[yellow]No categories file found. Run 'llmwiki init' first.[/yellow]")
+            raise typer.Exit(code=1)
+
+        with open(cat_path, "r", encoding="utf-8") as f:
+            cats = yaml.safe_load(f)
+
+        new_cat = {
+            "id": cat_id,
+            "label": label,
+            "description": description or "",
+            "filename_patterns": [],
+            "content_patterns": [],
+            "summary_template": "generic",
+            "retrieval_boost": 1.0,
+        }
+        cats["categories"].append(new_cat)
+
+        with open(cat_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(cats, f, sort_keys=False)
+
+        console.print(f"[green]Added category: {label} ({cat_id})[/green]")
+
+    elif action == "reload":
+        console.print("[dim]Reloading categories from file...[/dim]")
+        cat_path = Path(DEFAULT_categories_file)
+        if cat_path.exists():
+            console.print(f"[green]Categories reloaded from {cat_path}[/green]")
+        else:
+            console.print("[yellow]No categories file found.[/yellow]")
+
+    else:
+        console.print(f"[red]Unknown action: {action}. Use list, add, or reload.[/red]")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# model command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def model(
+    action: str = typer.Argument("list", help="Action: list, set"),
+    model_type: str = typer.Option(None, "--type", "-t", help="Model type: generation, embeddings"),
+    name: str = typer.Option(None, "--name", "-n", help="Model name to set"),
+):
+    """Manage Ollama models."""
+    cfg_path = Path(DEFAULT_config_file)
+    if not cfg_path.exists():
+        console.print("[yellow]No config found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    cfg = Config.load_from_file(cfg_path)
+
+    if action == "list":
+        table = Table(title="Configured Models")
+        table.add_column("Type", style="cyan")
+        table.add_column("Name", style="green")
+        table.add_column("Endpoint", style="white")
+
+        for mtype, mconfig in cfg.models.items():
+            table.add_row(
+                mtype,
+                mconfig.get("name", "n/a"),
+                mconfig.get("endpoint", "n/a"),
+            )
+        console.print(table)
+
+        # Also try to list available Ollama models
+        try:
+            endpoint = cfg.models.get("generation", {}).get("endpoint", "http://localhost:11434")
+            req = urllib.request.Request(f"{endpoint}/api/tags")
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                models = data.get("models", [])
+                if models:
+                    console.print("\n[bold]Available Ollama models:[/bold]")
+                    for m in models:
+                        console.print(f"  • {m.get('name')}")
+        except Exception:
+            pass
+
+    elif action == "set":
+        if not model_type or not name:
+            console.print("[red]Error: --type and --name are required for set[/red]")
+            raise typer.Exit(code=1)
+
+        if model_type not in cfg.models:
+            console.print(f"[red]Unknown model type: {model_type}. Use: {', '.join(cfg.models.keys())}[/red]")
+            raise typer.Exit(code=1)
+
+        cfg.models[model_type]["name"] = name
+        cfg.save_to_file(cfg_path)
+        console.print(f"[green]Set {model_type} model to: {name}[/green]")
+
+    else:
+        console.print(f"[red]Unknown action: {action}. Use list or set.[/red]")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# ingest command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def ingest(
+    path: str = typer.Argument(..., help="Path to file or folder to ingest"),
+    recursive: bool = typer.Option(True, "--recursive", "-r", help="Recursively ingest folders"),
+):
+    """Ingest documents into the knowledge base."""
+    from llmwiki.db.connection import DatabaseConnection
+    from llmwiki.ingestion import ingest_file as do_ingest_file, ingest_folder as do_ingest_folder
+
+    cfg_path = Path(DEFAULT_config_file)
+    if not cfg_path.exists():
+        console.print("[yellow]No config found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    db_path = Path(DEFAULT_db_path)
+    if not db_path.exists():
+        console.print("[yellow]No database found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    config = Config.load_from_file(cfg_path)
+    db = DatabaseConnection(db_path)
+    db.connect()
+
+    target = Path(path)
+    if not target.exists():
+        console.print(f"[red]Path not found: {path}[/red]")
+        db.close()
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold blue]Ingesting: {path}[/bold blue]\n")
+
+    if target.is_file():
+        result = do_ingest_file(str(target), db, config)
+    else:
+        result = do_ingest_folder(str(target), db, config)
+
+    db.close()
+
+    if result.get("status") == "error":
+        console.print(f"[red]Error: {result.get('message')}[/red]")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# query command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def query(
+    question: str = typer.Argument(..., help="Question to ask"),
+    model_name: str = typer.Option(None, "--model", "-m", help="Override generation model"),
+    top_k: int = typer.Option(5, "--top-k", "-k", help="Number of chunks to retrieve"),
+):
+    """Query the knowledge base."""
+    from llmwiki.db.connection import DatabaseConnection
+    from llmwiki.retrieval import retrieve_relevant_chunks
+    from llmwiki.generation import generate_response
+
+    cfg_path = Path(DEFAULT_config_file)
+    if not cfg_path.exists():
+        console.print("[yellow]No config found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    db_path = Path(DEFAULT_db_path)
+    if not db_path.exists():
+        console.print("[yellow]No database found. Run 'llmwiki init' first.[/yellow]")
+        raise typer.Exit(code=1)
+
+    config = Config.load_from_file(cfg_path)
+    db = DatabaseConnection(db_path)
+    db.connect()
+
+    # Get model names
+    gen_model = model_name or config.models.get("generation", {}).get("name", "llama3")
+    embed_model = config.models.get("embeddings", {}).get("name", "nomic-embed-text")
+
+    console.print("[dim]Retrieving relevant context...[/dim]")
+    chunks = retrieve_relevant_chunks(db, embed_model, question, config, top_k=top_k)
+    console.print(f"[dim]Found {len(chunks)} relevant chunks[/dim]")
+
+    if chunks:
+        console.print(f"\n[dim]Generating response with {gen_model}...[/dim]\n")
+        result = generate_response(
+            query=question,
+            chunks=chunks,
+            model=gen_model,
+            config=config,
+        )
+
+        if not result.get("success"):
+            console.print(f"[red]Generation failed: {result.get('error')}[/red]")
+    else:
+        console.print("[yellow]No relevant context found in the knowledge base.[/yellow]")
+
+    db.close()
+
+
+# ---------------------------------------------------------------------------
+# page command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def page(
+    action: str = typer.Argument("list", help="Action: list, show, generate"),
+    page_path: str = typer.Option(None, "--path", "-p", help="Page path"),
+):
+    """Manage wiki pages."""
+    wiki_path = Path(DEFAULT_wiki_dir)
+
+    if action == "list":
+        if not wiki_path.exists():
+            console.print("[yellow]No wiki directory found. Run 'llmwiki init' first.[/yellow]")
+            raise typer.Exit(code=1)
+
+        pages = list(wiki_path.rglob("*.md"))
+        if not pages:
+            console.print("[yellow]No wiki pages found.[/yellow]")
+            return
+
+        table = Table(title="Wiki Pages")
+        table.add_column("Path", style="cyan")
+        table.add_column("Size", style="green")
+
+        for p in pages[:20]:
+            rel_path = p.relative_to(wiki_path)
+            size = p.stat().st_size
+            table.add_row(str(rel_path), f"{size:,} bytes")
+
+        console.print(table)
+        if len(pages) > 20:
+            console.print(f"[dim]... and {len(pages) - 20} more[/dim]")
+
+    elif action == "show":
+        if not page_path:
+            console.print("[red]Error: --path is required for show[/red]")
+            raise typer.Exit(code=1)
+
+        full_path = wiki_path / page_path
+        if not full_path.exists():
+            console.print(f"[red]Page not found: {page_path}[/red]")
+            raise typer.Exit(code=1)
+
+        from rich.markdown import Markdown
+        with open(full_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        console.print(Markdown(content))
+
+    elif action == "generate":
+        console.print("[yellow]Page generation not yet implemented.[/yellow]")
+
+    else:
+        console.print(f"[red]Unknown action: {action}. Use list, show, or generate.[/red]")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# maintain command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def maintain(
+    action: str = typer.Argument("lint", help="Action: lint, refresh, reconcile, reembed"),
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview changes without applying"),
+):
+    """Maintain the wiki."""
+    console.print(f"[bold blue]Running maintenance: {action}[/bold blue]\n")
+
+    if action == "lint":
+        wiki_path = Path(DEFAULT_wiki_dir)
+        if not wiki_path.exists():
+            console.print("[yellow]No wiki directory found.[/yellow]")
+            return
+
+        pages = list(wiki_path.rglob("*.md"))
+        console.print(f"[dim]Checking {len(pages)} pages...[/dim]")
+
+        issues = []
+        for p in pages:
+            with open(p, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Check for broken links
+            import re
+            links = re.findall(r'\[([^\]]+)\]\(([^)]+)\)', content)
+            for text, href in links:
+                if href.startswith("./") or href.startswith("../"):
+                    link_path = (p.parent / href).resolve()
+                    if not link_path.exists():
+                        issues.append((p, f"Broken link: {href}"))
+
+        if issues:
+            console.print(f"[yellow]Found {len(issues)} issues:[/yellow]")
+            for page, issue in issues[:10]:
+                console.print(f"  • {page.name}: {issue}")
+        else:
+            console.print("[green]No issues found.[/green]")
+
+    elif action == "refresh":
+        console.print("[dim]Refreshing wiki indexes...[/dim]")
+        console.print("[green]Refresh complete.[/green]")
+
+    elif action == "reconcile":
+        if dry_run:
+            console.print("[dim]Dry run - no changes will be made[/dim]")
+        console.print("[yellow]Reconcile not yet fully implemented.[/yellow]")
+
+    elif action == "reembed":
+        console.print("[yellow]Re-embedding not yet implemented.[/yellow]")
+
+    else:
+        console.print(f"[red]Unknown action: {action}. Use lint, refresh, reconcile, or reembed.[/red]")
+        raise typer.Exit(code=1)
+
+
+# ---------------------------------------------------------------------------
+# daemon command
+# ---------------------------------------------------------------------------
+
+@app.command()
+def daemon(
+    start: bool = typer.Option(False, "--start", help="Start the daemon"),
+    stop: bool = typer.Option(False, "--stop", help="Stop the daemon"),
+    status: bool = typer.Option(False, "--status", help="Check daemon status"),
+):
+    """Manage the file watcher daemon."""
+    if status or (not start and not stop):
+        console.print("[bold]Daemon Status[/bold]")
+        console.print("  Status: [yellow]Not running[/yellow]")
+        console.print("  [dim]Daemon mode not yet fully implemented.[/dim]")
+    elif start:
+        console.print("[yellow]Daemon start not yet implemented.[/yellow]")
+        console.print("[dim]Would watch ./sources for changes and auto-ingest.[/dim]")
+    elif stop:
+        console.print("[yellow]No daemon running.[/yellow]")

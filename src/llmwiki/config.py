@@ -1,7 +1,7 @@
 """Configuration management with Pydantic settings."""
 
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,8 +21,8 @@ class FallbackGenerationModelConfig(BaseModel):
     """Fallback generation model configuration."""
     alias: str = "cloud_writer"
     provider: Literal["ollama"] = "ollama"
-    endpoint: str = "https://ollama.com"
-    name: str = "gpt-oss:120b-cloud"
+    endpoint: str = "http://localhost:11434"
+    name: str = "llama3:latest"
     temperature: float = 0.1
     num_ctx: int = 16384
     timeout_seconds: int = 120

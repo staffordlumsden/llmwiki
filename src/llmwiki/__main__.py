@@ -32,4 +32,29 @@ def main(
 
 
 # Import subcommands to register them
-from llmwiki.cli import init, doctor, stats, profile, category, model, ingest, query, page, maintain, daemon  # noqa: F401
+from llmwiki.cli import (  # noqa: F401
+    init,
+    doctor,
+    stats,
+    profile,
+    category,
+    model,
+    ingest,
+    query,
+    page,
+    maintain,
+    daemon,
+)
+
+# Register subcommands with the main app
+app.command()(init)
+app.command()(doctor)
+app.command()(stats)
+app.command()(profile)
+app.command(name="category")(category)
+app.command()(model)
+app.command()(ingest)
+app.command()(query)
+app.command()(page)
+app.command()(maintain)
+app.command()(daemon)
