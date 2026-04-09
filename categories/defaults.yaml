@@ -1,0 +1,108 @@
+categories:
+- id: case_law
+  label: Case law
+  description: Judicial decisions and law reports.
+  filename_patterns:
+  - (?i)\\bv\\b
+  - (?i)judgment
+  - (?i)decision
+  content_patterns:
+  - (?i)before\\s+the
+  - (?i)held that
+  - (?i)orders?
+  summary_template: legal_case
+  retrieval_boost: 1.15
+- id: legislation
+  label: Legislation
+  description: Statutes, acts, and regulatory instruments.
+  filename_patterns:
+  - (?i)act
+  - (?i)statute
+  - (?i)regulation
+  content_patterns:
+  - (?i)section\\s+\\d+
+  - (?i)subsection
+  - (?i)paragraph
+  summary_template: legislation
+  retrieval_boost: 1.1
+- id: policy
+  label: Policy
+  description: Organisational or government policy documents.
+  filename_patterns:
+  - (?i)policy
+  - (?i)guideline
+  - (?i)framework
+  content_patterns:
+  - (?i)purpose
+  - (?i)scope
+  - (?i)responsibilities
+  summary_template: policy
+  retrieval_boost: 1.05
+- id: journal_article
+  label: Journal article
+  description: "Peer\u2011reviewed or scholarly journal articles."
+  filename_patterns:
+  - (?i)article
+  - (?i)journal
+  content_patterns:
+  - (?i)abstract
+  - (?i)keywords
+  - (?i)doi
+  - (?i)references
+  summary_template: scholarship_article
+  retrieval_boost: 1.05
+- id: book_chapter
+  label: Book chapter
+  description: Chapters from edited books or monographs.
+  filename_patterns:
+  - (?i)chapter
+  - (?i)book
+  content_patterns:
+  - (?i)in\\s+eds?
+  - (?i)publisher
+  - (?i)isbn
+  summary_template: scholarship_book_chapter
+  retrieval_boost: 1.05
+- id: teaching_material
+  label: Teaching material
+  description: Unit guides, lecture notes, activities, and curriculum materials.
+  filename_patterns:
+  - (?i)lecture
+  - (?i)week\\s*\\d+
+  - (?i)unit outline
+  content_patterns:
+  - (?i)learning outcomes?
+  - (?i)assessment
+  - (?i)seminar
+  summary_template: teaching_material
+  retrieval_boost: 1.05
+- id: research_report
+  label: Research report
+  description: Research reports and technical documents.
+  filename_patterns:
+  - (?i)report
+  - (?i)technical
+  content_patterns:
+  - (?i)methodology
+  - (?i)findings
+  - (?i)conclusion
+  summary_template: research_report
+  retrieval_boost: 1.05
+- id: presentation_slides
+  label: Presentation slides
+  description: Slide decks and presentation materials.
+  filename_patterns:
+  - (?i)slide
+  - (?i)presentation
+  content_patterns:
+  - (?i)slide\\s*\\d+
+  - (?i)bullet
+  summary_template: presentation
+  retrieval_boost: 1.0
+- id: other
+  label: Other
+  description: Unclassified or miscellaneous documents.
+  filename_patterns: []
+  content_patterns: []
+  summary_template: generic
+  retrieval_boost: 1.0

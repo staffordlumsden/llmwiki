@@ -1,0 +1,91 @@
+profile: desktop
+paths:
+  sources_dir: ./sources
+  wiki_dir: ./wiki
+  state_dir: .llmwiki
+  cache_dir: .llmwiki/cache
+  db_path: .llmwiki/state.db
+models:
+  generation:
+    alias: writer
+    provider: ollama
+    endpoint: http://localhost:11434
+    name: qwen3.5:35b
+    temperature: 0.1
+    num_ctx: 16384
+    timeout_seconds: 120
+  fallback_generation:
+    alias: cloud_writer
+    provider: ollama
+    endpoint: https://ollama.com
+    name: gpt-oss:120b-cloud
+    temperature: 0.1
+    num_ctx: 16384
+    timeout_seconds: 120
+  embeddings:
+    alias: embedder
+    provider: ollama
+    endpoint: http://localhost:11434
+    name: qwen3-embedding
+    batch_size: 16
+    timeout_seconds: 120
+routing:
+  prefer_local: true
+  allow_cloud_fallback: true
+  fallback_on_oom: true
+  fallback_on_timeout: true
+retrieval:
+  use_embeddings: true
+  top_k_lexical: 12
+  top_k_semantic: 12
+  top_k_final: 10
+  lexical_weight: 0.55
+  semantic_weight: 0.45
+  include_neighbor_chunks: 1
+chunking:
+  target_chars: 1800
+  max_chars: 2400
+  min_chars: 500
+  overlap_chars: 150
+  split_on_headings: true
+  split_on_page_boundaries: true
+wiki:
+  source_summary_dir: sources
+  concept_dir: concepts
+  entity_dir: entities
+  comparison_dir: comparisons
+  open_questions_dir: open_questions
+  index_dir: indexes
+  changelog_file: CHANGELOG.md
+  cite_style: inline_brackets
+  require_citations: true
+  dry_run_default: false
+categories:
+  enabled: true
+  definitions_file: ./categories/defaults.yaml
+  allow_multi_label: true
+  use_llm_classification: true
+  use_rule_based_classification: true
+  default_category: other
+  min_confidence_for_auto_accept: 0.65
+  fallback_to_default_on_failure: true
+  boost_same_category_in_retrieval: true
+  category_dirs:
+    case_law: legal/case_law
+    legislation: legal/legislation
+    policy: policy
+    journal_article: scholarship/journal_articles
+    book_chapter: scholarship/book_chapters
+    teaching_material: teaching
+    research_report: reports
+    presentation_slides: presentations
+    other: other
+maintenance:
+  enable_lint: true
+  enable_link_repair: true
+  enable_orphan_detection: true
+  enable_staleness_checks: true
+daemon:
+  enabled: false
+  backend: polling
+  interval_seconds: 30
