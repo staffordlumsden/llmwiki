@@ -1,6 +1,7 @@
 """Document ingestion pipeline for llmwiki."""
 
 import hashlib
+import struct
 from pathlib import Path
 from typing import List, Dict, Any
 import ollama
@@ -312,7 +313,6 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
                     # Get the correct chunk_id for this text
                     chunk_id = chunk_ids[i] if i < len(chunk_ids) else chunk_ids[-1]
                     
-                    import struct
                     vector_bytes = struct.pack(f'{len(embedding)}f', *embedding)
                     embed_data.append((
                         chunk_id,

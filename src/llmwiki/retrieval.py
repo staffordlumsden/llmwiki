@@ -1,5 +1,6 @@
 """Retrieval pipeline with hybrid FTS + semantic search for llmwiki."""
 
+import re
 import numpy as np
 import ollama
 from typing import List, Dict, Optional
@@ -54,7 +55,7 @@ def embed_query(query: str, model: str, config: Config) -> Optional[List[float]]
         return None
 
 
-def sanitize_fts_query(query: str) -> str:
+def sanitize_fts_query(query: str) -> Optional[str]:
     """Sanitize a query for FTS5 MATCH syntax.
     
     Escapes special characters and handles common user input patterns
@@ -64,11 +65,10 @@ def sanitize_fts_query(query: str) -> str:
         query: Raw user query
         
     Returns:
-        Sanitized query safe for FTS5 MATCH
+        Sanitized query safe for FTS5 MATCH, or None if query is empty
     """
     # Remove or escape FTS5 special characters
     # FTS5 operators: AND, OR, NOT, NEAR, and special chars: " * ^ ( )
-    import re
     
     # Remove quotes that aren't balanced
     query = query.replace('"', ' ')
@@ -94,8 +94,8 @@ def sanitize_fts_query(query: str) -> str:
     # Join with spaces (implicit AND in FTS5)
     result = ' '.join(filtered_words)
     
-    # If empty after sanitization, return a wildcard that matches nothing
-    return result if result.strip() else '""'
+    # If empty after sanitization, return None to indicate no valid query
+    return result.strip() if result.strip() else None
 
 
 def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List[Dict]:
@@ -112,7 +112,7 @@ def retrieve_by_fts(db: DatabaseConnection, query: str, top_k: int = 12) -> List
     try:
         # Sanitize query for FTS5
         safe_query = sanitize_fts_query(query)
-        if not safe_query or safe_query == '""':
+        if not safe_query:
             return []
         
         # Use FTS5 match

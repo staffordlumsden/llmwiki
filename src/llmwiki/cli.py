@@ -1,8 +1,8 @@
 """CLI command implementations for llmwiki.
 
-This module registers subcommands with the Typer app defined in __main__.py.
-It includes the core Phase 1 commands: init, doctor, and stats.
-Later phases will add ingest, query, maintenance, etc.
+This module defines CLI command functions that are registered with the Typer app
+in __main__.py. It includes all commands: init, doctor, stats, profile, category,
+model, ingest, query, page, maintain, and daemon.
 """
 
 import typer
@@ -32,17 +32,11 @@ from llmwiki.constants import (
 
 
 console = Console()
-app = typer.Typer(help="Portable Ollama-powered LLM Wiki with a Rich CLI")
-
-# Import interactive command and register it with the main app
-from llmwiki.interactive import interactive_cmd  # noqa: F401
-app.command(name="interactive")(interactive_cmd)
 
 # ---------------------------------------------------------------------------
 # init command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def init(
     profile: str = typer.Option(
         "desktop",
@@ -231,7 +225,6 @@ def init(
 # doctor command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def doctor():
     """Run environment diagnostics and report actionable information."""
     console.print("[bold blue]llmwiki Doctor[/bold blue]")
@@ -390,7 +383,6 @@ def doctor():
 # stats command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def stats():
     """Show basic project statistics."""
     console.print("[bold blue]llmwiki Stats[/bold blue]\n")
@@ -430,7 +422,6 @@ def stats():
 # profile command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def profile(
     name: str = typer.Argument(None, help="Profile name to show or set"),
 ):
@@ -458,7 +449,6 @@ def profile(
 # category command
 # ---------------------------------------------------------------------------
 
-@app.command(name="category")
 def category(
     action: str = typer.Argument("list", help="Action: list, add, reload"),
     cat_id: str = typer.Option(None, "--id", help="Category ID for add"),
@@ -536,7 +526,6 @@ def category(
 # model command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def model(
     action: str = typer.Argument("list", help="Action: list, set"),
     model_type: str = typer.Option(None, "--type", "-t", help="Model type: generation, embeddings"),
@@ -600,7 +589,6 @@ def model(
 # ingest command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def ingest(
     path: str = typer.Argument(..., help="Path to file or folder to ingest"),
     recursive: bool = typer.Option(True, "--recursive", "-r", help="Recursively ingest folders"),
@@ -647,7 +635,6 @@ def ingest(
 # query command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def query(
     question: str = typer.Argument(..., help="Question to ask"),
     model_name: str = typer.Option(None, "--model", "-m", help="Override generation model"),
@@ -701,7 +688,6 @@ def query(
 # page command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def page(
     action: str = typer.Argument("list", help="Action: list, show, generate"),
     page_path: str = typer.Option(None, "--path", "-p", help="Page path"),
@@ -759,7 +745,6 @@ def page(
 # maintain command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def maintain(
     action: str = typer.Argument("lint", help="Action: lint, refresh, reconcile, reembed"),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview changes without applying"),
@@ -817,7 +802,6 @@ def maintain(
 # daemon command
 # ---------------------------------------------------------------------------
 
-@app.command()
 def daemon(
     start: bool = typer.Option(False, "--start", help="Start the daemon"),
     stop: bool = typer.Option(False, "--stop", help="Stop the daemon"),

@@ -45,6 +45,7 @@ from llmwiki.cli import (  # noqa: F401
     maintain,
     daemon,
 )
+from llmwiki.interactive import interactive_cmd
 
 # Register subcommands with the main app
 app.command()(init)
@@ -58,3 +59,4 @@ app.command()(query)
 app.command()(page)
 app.command()(maintain)
 app.command()(daemon)
+app.command(name="interactive")(interactive_cmd)
