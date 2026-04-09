@@ -58,7 +58,7 @@ def embed_query(query: str, model: str, config: Config) -> Optional[List[float]]
 def sanitize_fts_query(query: str) -> Optional[str]:
     """Sanitize a query for FTS5 MATCH syntax.
     
-    Escapes special characters and handles common user input patterns
+    Removes special characters and handles common user input patterns
     that would cause FTS5 syntax errors.
     
     Args:
