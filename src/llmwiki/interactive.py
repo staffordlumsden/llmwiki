@@ -252,26 +252,74 @@ def get_sources_count(db: DatabaseConnection) -> int:
 def handle_ingest(db: DatabaseConnection, config: Config):
     """Interactive document ingestion."""
     console.print(Panel("[bold]Ingest Documents[/bold]"))
-    options = ["Select file", "Select folder", "Back"]
-    choice, _ = pick(options, "Ingestion Mode", indicator=">")
+    options = ["[1] File", "[2] Folder", "Back"]
+    choice, _ = pick(options, "Select Ingestion Type", indicator=">")
     if choice == "Back":
         return
-    elif choice == "Select file":
-        # Simple file picker
-        path = Prompt.ask("Enter file path")
+    
+    # Helper to pick files/folders
+    def pick_item(is_folder: bool):
+        """Interactive file/folder picker using pick library."""
+        current_path = os.path.abspath('.')
+        while True:
+            try:
+                items = os.listdir(current_path)
+            except PermissionError:
+                console.print(Panel(f"[red]Permission denied: {current_path}[/red]"))
+                current_path = os.path.abspath(os.path.join(current_path, '..'))
+                continue
+            
+            options_list = []
+            parent_path = os.path.abspath(os.path.join(current_path, '..'))
+            if parent_path != current_path:
+                options_list.append("../ (Parent Directory)")
+            
+            # Sort: dirs first, then files
+            dirs = sorted([d for d in items if os.path.isdir(os.path.join(current_path, d))])
+            files = sorted([f for f in items if os.path.isfile(os.path.join(current_path, f))])
+            
+            if is_folder:
+                for d in dirs:
+                    options_list.append(f"[DIR] {d}")
+                options_list.append("[Select this folder]")
+            else:
+                # Filter for common document extensions
+                doc_exts = {'.pdf', '.txt', '.md', '.docx', '.csv', '.xlsx'}
+                for f in files:
+                    if os.path.splitext(f)[1].lower() in doc_exts:
+                        options_list.append(f)
+            
+            options_list.append("[Cancel]")
+            
+            selected, index = pick(options_list, f"Select {'folder' if is_folder else 'file'} from: {current_path}", indicator="=>")
+            
+            if selected == "[Cancel]" or index is None:
+                return None
+            if selected == "../ (Parent Directory)":
+                current_path = parent_path
+                continue
+            if is_folder and selected == "[Select this folder]":
+                return current_path
+            if selected.startswith("[DIR] "):
+                current_path = os.path.join(current_path, selected[6:])
+                continue
+            # It's a file
+            return os.path.join(current_path, selected)
+    
+    if choice == "[1] File":
+        path = pick_item(is_folder=False)
         if path and os.path.exists(path):
             console.print(Panel(f"[green]Ingesting: {path}[/green]"))
-            # Stub: In real impl, call ingestion pipeline
             console.print("[dim]Ingestion stub - full pipeline not yet connected.[/dim]")
         else:
-            console.print(Panel("[red]File not found.[/red]"))
-    elif choice == "Select folder":
-        path = Prompt.ask("Enter folder path")
+            console.print(Panel("[yellow]No file selected.[/yellow]"))
+    elif choice == "[2] Folder":
+        path = pick_item(is_folder=True)
         if path and os.path.isdir(path):
             console.print(Panel(f"[green]Ingesting folder: {path}[/green]"))
             console.print("[dim]Folder ingestion stub.[/dim]")
         else:
-            console.print(Panel("[red]Folder not found.[/red]"))
+            console.print(Panel("[yellow]No folder selected.[/yellow]"))
 
 
 # --- Retrieval ---
