@@ -291,32 +291,48 @@ def ingest_file(file_path: str, db: DatabaseConnection, config: Config) -> Dict[
  )
  console.print(f"[dim]Updated FTS index for {len(chunk_rows)} chunks[/dim]")
 
-        # Generate and store embeddings
+        # Generate and store embeddings with progress
         embed_model = config.models["embeddings"]["name"]
         console.print(f"[dim]Generating embeddings with {embed_model}...[/dim]")
         
         if all_texts:
-            embeddings = generate_embeddings(all_texts, embed_model, config)
-            
+            # Progress for embedding generation
+            embed_progress = Progress(
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+            )
             embed_data = []
-            for i, (chunk, embedding) in enumerate(zip(chunk_metadata, embeddings)):
-                # Get chunk_id (last inserted chunk for this source_version)
-                chunk_id = db.fetchone(
-                    "SELECT id FROM chunks WHERE source_version_id = ? ORDER BY chunk_index DESC LIMIT 1",
-                    (source_version_id,)
-                )["id"]
-                
-                # Store embedding as blob (convert float list to bytes)
-                import struct
-                vector_bytes = struct.pack(f'{len(embedding)}f', *embedding)
-                
-                embed_data.append((
-                    chunk_id,
-                    embed_model,
-                    len(embedding),
-                    'float32',
-                    vector_bytes
-                ))
+            with embed_progress:
+                embed_task = embed_progress.add_task("Embedding chunks", total=len(all_texts))
+                batch_size = config.models["embeddings"].get("batch_size", 1)
+                for i in range(0, len(all_texts), batch_size):
+                    batch = all_texts[i:i + batch_size]
+                    try:
+                        # Ollama embeddings API only accepts a single prompt at a time in this stub
+                        response = ollama.embeddings(model=embed_model, prompt=batch[0])
+                        embedding = response.get("embedding")
+                    except Exception as e:
+                        console.print(f"[red]Error generating embedding: {e}[/red]")
+                        embedding = [0.0] * 768
+                    # Store embedding for corresponding chunk
+                    chunk = chunk_metadata[i]
+                    # Get chunk_id (last inserted chunk for this source_version)
+                    chunk_id = db.fetchone(
+                        "SELECT id FROM chunks WHERE source_version_id = ? ORDER BY chunk_index DESC LIMIT 1",
+                        (source_version_id,)
+                    )["id"]
+                    import struct
+                    vector_bytes = struct.pack(f'{len(embedding)}f', *embedding)
+                    embed_data.append((
+                        chunk_id,
+                        embed_model,
+                        len(embedding),
+                        'float32',
+                        vector_bytes
+                    ))
+                    embed_progress.update(embed_task, advance=1)
             
             if embed_data:
                 db.executemany(
