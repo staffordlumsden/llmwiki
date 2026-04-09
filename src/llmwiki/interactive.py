@@ -83,15 +83,18 @@ def get_multiline_input() -> str:
 def print_banner():
     """Print colorful figlet banner."""
     console.print("\n\n")
-    banner_text = pyfiglet.figlet_format("llmwiki", font="4Max", width=int(console.width * 0.9))
+    # Use "LLMWiki CLI" for the figlet header
+    banner_text = pyfiglet.figlet_format("LLMWiki CLI", font="4Max", width=int(console.width * 0.9))
     lines = banner_text.split("\n")
     rainbow = ["bold bright_red", "bold bright_yellow", "bold bright_green", "bold bright_cyan", "bold bright_blue", "bold bright_magenta"]
     for i, line in enumerate(lines):
         console.print(Align.center(f"[{rainbow[i % len(rainbow)]}]{line}[/{rainbow[i % len(rainbow)]}]"))
     console.print()
+    # Updated tagline with copyright
+    tagline = "An LLMWiki CLI Powered by Ollama ©Stafford Lumsden April 2026 v.1.0"
     console.print(
         Align.center(
-            Text("Interactive LLM Wiki - Powered by Ollama", style="white"),
+            Text(tagline, style="white"),
         ),
         highlight=False,
     )

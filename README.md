@@ -1,8 +1,14 @@
-# llmwiki: Portable Ollama-Powered LLM Wiki
+# LLMWiki CLI
+## Build your personal knowledge bases and keep them local
+### Powered by Ollama, inspired by Andrej Karpathy
+
+An LLMWiki CLI Powered by Ollama, inspired by [Andrej Karpathy](https://gist.github.com/karpathy) and his [LLM Wiki](https://gist.github.com/karpathy) concept.
+
+**Copyright © Stafford Lumsden April 2026 v.1.0**
 
 A production-minded Python application that maintains a persistent markdown knowledge wiki over a folder of source documents. It features automatic categorisation, hybrid retrieval (FTS5 + embeddings), and runs portably across hardware from tiny ARM boards to desktop Apple Silicon.
 
-## Features
+## 🎯 Features
 
 - **Portable**: Pure Python, SQLite-based, no Docker or heavy services required
 - **Automatic Categorisation**: Sources are classified on ingest using rule-based and LLM-driven methods
@@ -14,7 +20,7 @@ A production-minded Python application that maintains a persistent markdown know
 - **Safe Updates**: Dry-run and diff modes for page updates
 - **Citations**: Every synthesis includes stable inline citations
 
-## Installation
+## 🚀 Installation
 
 ```bash
 # Install dependencies
@@ -24,7 +30,7 @@ uv sync
 pip install -e .
 ```
 
-## Quick Start
+## 📖 Quick Start
 
 ### 1. Initialise a Project
 
@@ -93,7 +99,7 @@ llmwiki maintain refresh
 llmwiki maintain reconcile
 ```
 
-## Interactive TUI
+## 🎨 Interactive TUI
 
 Launch the Contextual-style interface:
 
@@ -109,9 +115,10 @@ llmwiki interactive
 - `/switch chat|embed` - Switch models interactively
 - `/set cold|balanced|warm` - Apply parameter presets
 - `/set parameter <name> <value>` - Set Ollama runtime parameters
+- `/readme` - View this README
 - `/exit` or `/quit` - Exit
 
-## Hardware Profiles
+## 💻 Hardware Profiles
 
 | Profile | Target Hardware | Features |
 |---------|----------------|----------|
@@ -120,7 +127,7 @@ llmwiki interactive
 | `desktop` | Mac mini M4 | Full features, local models, daemon mode |
 | `custom` | User-defined | Override any parameter |
 
-## Extending Categories
+## 📂 Extending Categories
 
 Categories are data-driven. Add a new category without code changes:
 
@@ -147,7 +154,7 @@ llmwiki category reload
 llmwiki maintain recategorise
 ```
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 sources/              # Raw PDFs (immutable ground truth)
@@ -165,7 +172,7 @@ wiki/                 # Generated markdown (maintained knowledge layer)
 - **Open Questions**: Unresolved tensions
 - **Category Pages**: Organised by document type
 
-## Configuration
+## ⚙️ Configuration
 
 See `llmwiki.yaml` for full options:
 - Model endpoints and aliases
@@ -175,7 +182,7 @@ See `llmwiki.yaml` for full options:
 - Category settings
 - Daemon/watch mode
 
-## Advanced Usage
+## 🛠️ Advanced Usage
 
 ### Model Switching
 ```bash
@@ -198,7 +205,11 @@ llmwiki maintain reconcile --dry-run
 llmwiki maintain reembed --model new-embedding-model
 ```
 
-## Contributing
+## 🙏 Kudos
+
+This project was inspired by **Andrej Karpathy**'s vision of local LLM-powered knowledge systems. Special thanks to his [LLM Wiki gist](https://gist.github.com/karpathy) which sparked the idea of maintaining personal knowledge bases with local models.
+
+## 🤝 Contributing
 
 1. Fork the repo
 2. Create a feature branch
@@ -206,15 +217,22 @@ llmwiki maintain reembed --model new-embedding-model
 4. Lint: `ruff check .`
 5. Submit a PR
 
-## License
+## 📄 License
 
-MIT License
+MIT License - Copyright © Stafford Lumsden April 2026 v.1.0
 
-## Credits
+See [LICENSE](LICENSE) for full text.
 
-Built with:
-- Typer + Rich for CLI
-- SQLite FTS5 for lexical search
-- Ollama for generation and embeddings
-- PyPDF for document parsing
-- NumPy for vector operations
+## 🛠️ Built With
+
+- **Typer + Rich** for CLI
+- **SQLite FTS5** for lexical search
+- **Ollama** for generation and embeddings
+- **PyPDF** for document parsing
+- **NumPy** for vector operations
+- **Prompt Toolkit** for interactive input
+- **Pick** for file selection menus
+
+---
+
+**LLMWiki CLI v1.0** | © Stafford Lumsden April 2026

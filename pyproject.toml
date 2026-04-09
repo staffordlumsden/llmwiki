@@ -1,7 +1,11 @@
 [project]
 name = "llmwiki"
 version = "0.1.0"
-description = "Portable Ollama-powered LLM Wiki with a Rich CLI"
+description = "An LLMWiki CLI Powered by Ollama inspired by Andrej Karpathy"
+license = {text = "MIT"}
+authors = [
+    {name = "Stafford Lumsden", email = "staffordlumsden@example.com"}
+]
 requires-python = ">=3.12"
 dependencies = [
     "typer>=0.12",
