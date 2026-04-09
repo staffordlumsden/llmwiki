@@ -4,7 +4,7 @@
 
 An LLMWiki CLI Powered by Ollama, inspired by [Andrej Karpathy](https://gist.github.com/karpathy) and his [LLM Wiki](https://gist.github.com/karpathy) concept.
 
-**Copyright © Stafford Lumsden April 2026 v.1.0**
+**April 2026 v.1.3**
 
 A production-minded Python application that maintains a persistent markdown knowledge wiki over a folder of source documents. It features automatic categorisation, hybrid retrieval (FTS5 + embeddings), and runs portably across hardware from tiny ARM boards to desktop Apple Silicon.
 
@@ -235,4 +235,4 @@ See [LICENSE](LICENSE) for full text.
 
 ---
 
-**LLMWiki CLI v1.0** | © Stafford Lumsden April 2026
+**LLMWiki CLI v1.3** | © Stafford Lumsden April 2026
