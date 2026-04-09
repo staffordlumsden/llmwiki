@@ -71,7 +71,7 @@ def print_banner():
         console.print(Align.center(f"[{rainbow[i % len(rainbow)]}]{line}[/{rainbow[i % len(rainbow)]}]"))
     console.print()
     # Updated tagline with copyright
-    tagline = "An LLMWiki CLI Powered by Ollama ©Stafford Lumsden April 2026 v.1.0"
+    tagline = "An LLMWiki CLI Powered by Ollama ©Stafford Lumsden April 2026 v.1.3"
     console.print(
         Align.center(
             Text(tagline, style="white"),
