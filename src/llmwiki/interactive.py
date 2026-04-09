@@ -47,6 +47,10 @@ from llmwiki.constants import (
     DEFAULT_cache_dir,
     DEFAULT_db_path,
 )
+# Additional imports for full pipeline
+from llmwiki.ingestion import ingest_file, ingest_folder
+from llmwiki.generation import generate_response, generate_response_simple
+from llmwiki.retrieval import retrieve_relevant_chunks, get_chunk_neighbors
 
 console = Console()
 app = typer.Typer(help="Interactive llmwiki TUI")
@@ -323,15 +327,9 @@ def handle_ingest(db: DatabaseConnection, config: Config):
 
 
 # --- Retrieval ---
-def retrieve_relevant_chunks(db: DatabaseConnection, embed_model: str, query: str, top_k: int = 5) -> List[Dict]:
-    """Retrieve relevant chunks using embeddings (stub)."""
-    # Stub: In real impl, embed query and search embeddings table
-    try:
-        # Simple FTS fallback
-        rows = db.fetchall("SELECT chunks.id, chunks.text FROM chunks JOIN chunk_fts ON chunks.id = chunk_fts.rowid WHERE chunk_fts MATCH ? LIMIT ?", (query, top_k))
-        return [{"text": r["text"], "similarity": 1.0} for r in rows]
-    except Exception:
-        return []
+# Retrieval function is provided by llmwiki.retrieval module imported above.
+# The imported retrieve_relevant_chunks will be used.
+
 
 
 # --- Chat loop ---
